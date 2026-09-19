@@ -22,7 +22,12 @@ textarea{min-height:70px}
 .audioPreview{display:block;width:100%;margin:2px 0 10px}
 @media(max-width:700px){.grid{grid-template-columns:1fr}.uploadLine{grid-template-columns:1fr}}
 table{width:100%;border-collapse:collapse}
-th,td{padding:9px;border-bottom:1px solid #ddd;text-align:right}
+th,td{padding:9px;border-bottom:1px solid #ddd;text-align:right;vertical-align:top}
+.nameBtn{background:none;border:0;padding:0;font:inherit;font-weight:700;text-decoration:underline;cursor:pointer;color:#071a52}
+.detailBox{background:#f8fafc;border:1px solid #dfe5ee;border-radius:10px;padding:12px;margin-top:8px}
+.answerTable{width:100%;border-collapse:collapse}
+.answerTable th,.answerTable td{padding:7px;border-bottom:1px solid #e5e7eb;text-align:right}
+.ok{font-weight:700;color:#0b7a48}.bad{font-weight:700;color:#b42318}
 </style>
 </head>
 <body>
@@ -53,7 +58,12 @@ th,td{padding:9px;border-bottom:1px solid #ddd;text-align:right}
 <button class="btn" id="saveQ">Enregistrer toutes les questions</button>
 </div>
 
-<div class="panel"><h2>Résultats des élèves</h2><div id="results">Chargement…</div></div>
+<div class="panel">
+<h2>Résultats des élèves</h2>
+<p class="muted">Les résultats restent masqués jusqu’à ce que vous cliquiez sur le bouton.</p>
+<button class="btn" id="showResults" type="button">Afficher les résultats des élèves</button>
+<div id="results" hidden>Aucun résultat chargé.</div>
+</div>
 </section>
 </main>
 
@@ -99,7 +109,6 @@ async function load(){
   if(r.error){alert(r.error.message);return}
   qs=r.data;
   draw();
-  loadResults();
 }
 
 function draw(){
@@ -216,14 +225,84 @@ async function saveQuestions(){
   await load();
 }
 
-async function loadResults(){
-  let r=await sb.from('results').select('student_name,score,total,percentage,created_at').eq('test_id',TEST_ID).order('created_at',{ascending:false});
-  if(r.error){$('results').textContent=r.error.message;return}
-  if(!r.data.length){$('results').textContent='Aucun résultat pour le moment.';return}
-  $('results').innerHTML='<table><tr><th>Élève</th><th>Score</th><th>Pourcentage</th><th>Date</th></tr>'
-    +r.data.map(x=>'<tr><td>'+x.student_name+'</td><td>'+x.score+'/'+x.total+'</td><td>'+x.percentage+'%</td><td>'+new Date(x.created_at).toLocaleString('ar-EG')+'</td></tr>').join('')
-    +'</table>';
+function esc(v){
+  return String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[ch]));
 }
+
+function getAnswerIndex(answers, qid){
+  if(!answers || typeof answers!=='object') return null;
+  const raw=answers[qid];
+  if(raw===null || raw===undefined || raw==='') return null;
+  if(typeof raw==='number') return Number.isFinite(raw)?raw:null;
+  if(typeof raw==='string' && raw.trim()!==''){
+    const n=Number(raw);
+    return Number.isFinite(n)?n:null;
+  }
+  if(typeof raw==='object'){
+    const candidate = raw.selected_index ?? raw.answer ?? raw.index;
+    const n=Number(candidate);
+    return Number.isFinite(n)?n:null;
+  }
+  return null;
+}
+
+async function loadResults(){
+  const btn=$('showResults');
+  btn.disabled=true;
+  btn.textContent='Chargement…';
+  const [rr, qr] = await Promise.all([
+    sb.from('results').select('*').eq('test_id',TEST_ID).order('created_at',{ascending:false}),
+    sb.from('questions').select('id,position,question_text,options,correct_index,correct_sentence').eq('test_id',TEST_ID).order('position')
+  ]);
+  btn.disabled=false;
+  btn.textContent='Masquer les résultats';
+  $('results').hidden=false;
+  if(rr.error){$('results').textContent=rr.error.message;return}
+  if(qr.error){$('results').textContent=qr.error.message;return}
+  const results=rr.data||[];
+  const questions=qr.data||[];
+  if(!results.length){$('results').textContent='Aucun résultat pour le moment.';return}
+
+  $('results').innerHTML='<table><thead><tr><th>Élève</th><th>Score</th><th>Pourcentage</th><th>Date</th></tr></thead><tbody>'
+    + results.map((x,i)=>{
+      const resultId=x.id||('r'+i);
+      return '<tr><td><button class="nameBtn" type="button" data-result="'+esc(resultId)+'">'+esc(x.student_name)+'</button><div class="detailBox" id="detail-'+esc(resultId)+'" hidden></div></td>'
+        +'<td>'+esc(x.score)+'/'+esc(x.total)+'</td><td>'+esc(x.percentage)+'%</td><td>'+esc(new Date(x.created_at).toLocaleString('fr-FR'))+'</td></tr>';
+    }).join('')
+    +'</tbody></table>';
+
+  [...$('results').querySelectorAll('.nameBtn')].forEach((nameBtn,i)=>{
+    nameBtn.onclick=()=>{
+      const x=results[i];
+      const box=$('detail-'+(x.id||('r'+i)));
+      if(!box) return;
+      if(!box.hidden){box.hidden=true;return}
+      box.innerHTML=buildResultDetails(x,questions);
+      box.hidden=false;
+    };
+  });
+}
+
+function buildResultDetails(result,questions){
+  const answers=result.answers||{};
+  let html='<div><strong>'+esc(result.student_name)+'</strong> — '+esc(result.score)+'/'+esc(result.total)+' ('+esc(result.percentage)+'%)</div>';
+  html+='<table class="answerTable"><thead><tr><th>Question</th><th>Votre réponse</th><th>Bonne réponse</th><th>Phrase correcte</th><th>Résultat</th></tr></thead><tbody>';
+  questions.forEach((q,idx)=>{
+    const chosen=getAnswerIndex(answers,q.id);
+    const opts=Array.isArray(q.options)?q.options:[];
+    const studentText=(chosen!==null && chosen>=0 && chosen<opts.length)?opts[chosen]:'Aucune réponse';
+    const correctText=(q.correct_index>=0 && q.correct_index<opts.length)?opts[q.correct_index]:'—';
+    const ok=chosen!==null && chosen===q.correct_index;
+    html+='<tr><td>Question '+esc(idx+1)+'</td><td>'+esc(studentText)+'</td><td>'+esc(correctText)+'</td><td>'+esc(q.correct_sentence||'—')+'</td><td class="'+(ok?'ok':'bad')+'">'+(ok?'✓ Bonne réponse':'✗ Mauvaise réponse')+'</td></tr>';
+  });
+  html+='</tbody></table>';
+  return html;
+}
+
+$('showResults').onclick=async()=>{
+  if(!$('results').hidden){$('results').hidden=true;$('showResults').textContent='Afficher les résultats des élèves';return}
+  await loadResults();
+};
 
 sb.auth.getSession().then(()=>start());
 </script>
