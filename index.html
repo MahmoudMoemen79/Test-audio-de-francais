@@ -182,9 +182,33 @@ async function submitQuiz(){
   }
 
   const data=r.data || {};
-  const score=Number(data.score||0);
-  const total=Number(data.total||QUESTION_BANK.length);
-  const percentage=Number(data.percentage||0);
+  const details=Array.isArray(data.details) ? data.details : [];
+
+  // Normalize the server result using the safe published question data.
+  // This fixes missing answer text and ensures an unanswered question is never marked correct.
+  let computedScore=0;
+  const normalizedDetails=details.map(d=>{
+    const q=QUESTION_BANK.find(x=>String(x.id)===String(d.question_id));
+    const options=q && Array.isArray(q.options) ? q.options : [];
+    const selectedIndex=(d.selected_index === null || d.selected_index === undefined || d.selected_index === '')
+      ? null : Number(d.selected_index);
+    const correctIndex=Number(d.correct_index);
+    const validSelected=Number.isInteger(selectedIndex) && selectedIndex>=0 && selectedIndex<4;
+    const ok=validSelected && Number.isInteger(correctIndex) && selectedIndex===correctIndex;
+    if(ok) computedScore++;
+    return {
+      ...d,
+      selected_index:selectedIndex,
+      correct_index:correctIndex,
+      selected_text:validSelected ? options[selectedIndex] : null,
+      correct_text:(Number.isInteger(correctIndex) && correctIndex>=0 && correctIndex<4) ? options[correctIndex] : null,
+      correct:ok
+    };
+  });
+
+  const total=normalizedDetails.length || QUESTION_BANK.length;
+  const score=computedScore;
+  const percentage=total ? Math.round((score*10000/total))/100 : 0;
 
   result.style.display='block';
   result.innerHTML='';
@@ -197,10 +221,10 @@ async function submitQuiz(){
   p.textContent='Élève : '+studentName;
   result.appendChild(p);
 
-  (data.details || []).forEach(d=>{
+  normalizedDetails.forEach(d=>{
     const review=document.createElement('div');
     review.className='review';
-    const ok=!!d.correct;
+    const ok=d.correct===true;
     const title=document.createElement('div');
     title.innerHTML='<strong>Question '+esc(d.position)+'</strong> — <span class="'+(ok?'correct':'wrong')+'">'+(ok?'✓ Bonne réponse':'✗ Mauvaise réponse')+'</span>';
     review.appendChild(title);
@@ -215,7 +239,9 @@ async function submitQuiz(){
 
     const sentence=document.createElement('div');
     sentence.className='sentence';
-    sentence.textContent='Phrase correcte : '+(d.correct_sentence ?? '');
+    let correctSentence=String(d.correct_sentence ?? '');
+    correctSentence=correctSentence.replace(/^Phrase correcte\s*:?[\s]*/i, '');
+    sentence.textContent='Phrase correcte : '+correctSentence;
     review.appendChild(sentence);
 
     result.appendChild(review);
