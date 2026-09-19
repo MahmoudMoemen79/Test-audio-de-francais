@@ -20,39 +20,85 @@ audio{display:block;width:100%;max-width:100%}
 .option{display:block;padding:12px;margin:8px 0;border:1px solid #dde3ec;border-radius:10px;cursor:pointer;line-height:1.4}
 .option:hover{background:#f5f8fc}
 .submit{width:100%;border:0;border-radius:12px;background:#071a52;color:#fff;font-weight:700;font-size:19px;padding:15px;cursor:pointer}
+.submit:disabled{opacity:.6;cursor:not-allowed}
 .result{display:none}.score{font-size:26px;font-weight:800}
 .review{border-top:1px solid #ddd;margin-top:16px;padding-top:14px;line-height:1.6}
 .correct{color:#16823b}.wrong{color:#c62828}
 .sentence{margin-top:8px;padding:10px;border-radius:10px;background:#f0f4f8;direction:ltr;text-align:left}
-.notice{color:#8a5a00;background:#fff7e6;padding:10px;border-radius:10px;margin-top:10px}
+.notice{color:#8a5a00;background:#fff7e6;padding:12px;border-radius:10px;margin-top:10px}
+input[type=text]{width:100%;padding:12px;border:1px solid #ccd3df;border-radius:10px;font-size:16px}
+.loading{text-align:center;padding:24px;font-weight:700}
 </style>
 </head>
 <body>
 <header class="hero">
   <div style="font-size:28px">🇫🇷 🗼 🇫🇷</div>
-  <h1>Compréhension orale</h1>
-  <p>Écoutez et choisissez la bonne réponse.</p>
+  <h1 id="testTitle">Compréhension orale</h1>
+  <p id="testSubtitle">Écoutez et choisissez la bonne réponse.</p>
   <div class="name">M. Mahmoud Moemen</div>
 </header>
 
 <main class="wrap">
 <section class="panel">
-  <p class="instruction">Écoutez d'abord le fichier audio, puis choisissez la bonne réponse.</p>
+  <label for="studentName"><strong>Nom de l'élève</strong></label>
+  <input id="studentName" type="text" maxlength="120" placeholder="Écrivez votre nom">
+  <p class="instruction" id="instruction">Chargement du test…</p>
 </section>
 
-<div id="quiz"></div>
-<button class="submit" id="submit" type="button">Voir le résultat</button>
+<div id="quiz"><div class="panel loading">Chargement du test…</div></div>
+<button class="submit" id="submit" type="button" disabled>Voir le résultat</button>
 <section class="panel result" id="result" aria-live="polite"></section>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
 <script>
-const QUESTION_BANK = [{"audio": "audio_1.mp3", "question": "Question 1 — modifiez ici", "options": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], "answer": 0, "sentence": "Phrase 1 — modifiez ici"}, {"audio": "audio_2.mp3", "question": "Question 2 — modifiez ici", "options": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], "answer": 0, "sentence": "Phrase 2 — modifiez ici"}, {"audio": "audio_3.mp3", "question": "Question 3 — modifiez ici", "options": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], "answer": 0, "sentence": "Phrase 3 — modifiez ici"}, {"audio": "audio_4.mp3", "question": "Question 4 — modifiez ici", "options": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], "answer": 0, "sentence": "Phrase 4 — modifiez ici"}, {"audio": "audio_5.mp3", "question": "Question 5 — modifiez ici", "options": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], "answer": 0, "sentence": "Phrase 5 — modifiez ici"}, {"audio": "audio_6.mp3", "question": "Question 6 — modifiez ici", "options": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], "answer": 0, "sentence": "Phrase 6 — modifiez ici"}, {"audio": "audio_7.mp3", "question": "Question 7 — modifiez ici", "options": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], "answer": 0, "sentence": "Phrase 7 — modifiez ici"}, {"audio": "audio_8.mp3", "question": "Question 8 — modifiez ici", "options": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], "answer": 0, "sentence": "Phrase 8 — modifiez ici"}, {"audio": "audio_9.mp3", "question": "Question 9 — modifiez ici", "options": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], "answer": 0, "sentence": "Phrase 9 — modifiez ici"}, {"audio": "audio_10.mp3", "question": "Question 10 — modifiez ici", "options": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], "answer": 0, "sentence": "Phrase 10 — modifiez ici"}];
-const PLAY_LIMIT = 3; // À modifier plus tard dans le tableau de bord.
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+let TEST = null;
+let QUESTION_BANK = [];
+let PLAY_LIMIT = 3;
+let playCounts = [];
+
 const quiz = document.getElementById('quiz');
 const result = document.getElementById('result');
-const playCounts = Array(QUESTION_BANK.length).fill(0);
+const submitBtn = document.getElementById('submit');
+
+function esc(value){
+  return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+}
+
+function showError(message){
+  quiz.innerHTML = '<section class="panel notice">'+esc(message)+'</section>';
+  submitBtn.disabled = true;
+}
+
+async function loadTest(){
+  const t = await sb.from('published_tests').select('id,title,instruction,play_limit').eq('id',TEST_ID).maybeSingle();
+  if(t.error) throw new Error(t.error.message);
+  if(!t.data) throw new Error('Le test n’est pas publié ou il est introuvable.');
+  TEST = t.data;
+  PLAY_LIMIT = Math.max(0, Number(TEST.play_limit ?? 0));
+
+  document.getElementById('testTitle').textContent = TEST.title || 'Compréhension orale';
+  document.getElementById('instruction').textContent = TEST.instruction || 'Écoutez d’abord le fichier audio, puis choisissez la bonne réponse.';
+
+  const q = await sb.from('published_questions').select('id,test_id,position,audio_url,question_text,options').eq('test_id',TEST_ID).order('position');
+  if(q.error) throw new Error(q.error.message);
+  QUESTION_BANK = (q.data || []).map(x => ({
+    id:x.id,
+    position:x.position,
+    audio:x.audio_url,
+    question:x.question_text,
+    options:Array.isArray(x.options) ? x.options : Object.values(x.options || {})
+  }));
+  if(!QUESTION_BANK.length) throw new Error('Aucune question active dans ce test.');
+  playCounts = Array(QUESTION_BANK.length).fill(0);
+  renderQuiz();
+  submitBtn.disabled = false;
+}
 
 function renderQuiz(){
+  quiz.innerHTML='';
   QUESTION_BANK.forEach((q,i)=>{
     const card=document.createElement('section');
     card.className='card';
@@ -63,7 +109,7 @@ function renderQuiz(){
     const audio=document.createElement('audio');
     audio.controls=true;
     audio.preload='none';
-    audio.src=q.audio;
+    audio.src=q.audio || '';
     audio.setAttribute('aria-label','Audio de la question '+(i+1));
 
     const plays=document.createElement('span');
@@ -79,7 +125,7 @@ function renderQuiz(){
     const opts=document.createElement('div');
     opts.className='options';
 
-    q.options.forEach((o,j)=>{
+    q.options.slice(0,4).forEach((o,j)=>{
       const label=document.createElement('label');
       label.className='option';
       const input=document.createElement('input');
@@ -97,7 +143,7 @@ function renderQuiz(){
     quiz.appendChild(card);
 
     audio.addEventListener('play',()=>{
-      if(playCounts[i]>=PLAY_LIMIT){
+      if(playCounts[i] >= PLAY_LIMIT){
         audio.pause();
         audio.currentTime=0;
       }
@@ -105,64 +151,82 @@ function renderQuiz(){
     audio.addEventListener('ended',()=>{
       playCounts[i]++;
       plays.textContent='Écoutes : '+playCounts[i]+' / '+PLAY_LIMIT;
-      if(playCounts[i]>=PLAY_LIMIT){
-        audio.controls=false;
-      }
+      if(playCounts[i] >= PLAY_LIMIT) audio.controls=false;
+    });
+    audio.addEventListener('error',()=>{
+      plays.textContent='Erreur : le fichier audio n’est pas disponible.';
     });
   });
 }
 
-document.getElementById('submit').addEventListener('click',()=>{
-  let score=0, unanswered=0;
+async function submitQuiz(){
+  const studentName=document.getElementById('studentName').value.trim();
+  if(!studentName){
+    alert('Veuillez écrire votre nom avant de voir le résultat.');
+    document.getElementById('studentName').focus();
+    return;
+  }
+  submitBtn.disabled=true;
+
+  const answers={};
   QUESTION_BANK.forEach((q,i)=>{
     const chosen=document.querySelector('input[name="q'+i+'"]:checked');
-    if(!chosen) unanswered++;
-    else if(Number(chosen.value)===Number(q.answer)) score++;
+    answers[q.id] = chosen ? Number(chosen.value) : null;
   });
+
+  const r=await sb.rpc('grade_submission',{p_test_id:TEST_ID,p_student_name:studentName,p_answers:answers});
+  if(r.error){
+    submitBtn.disabled=false;
+    alert(r.error.message);
+    return;
+  }
+
+  const data=r.data || {};
+  const score=Number(data.score||0);
+  const total=Number(data.total||QUESTION_BANK.length);
+  const percentage=Number(data.percentage||0);
 
   result.style.display='block';
   result.innerHTML='';
   const scoreBox=document.createElement('div');
   scoreBox.className='score';
-  scoreBox.textContent='Résultat : '+score+' / '+QUESTION_BANK.length+' ('+Math.round(score/QUESTION_BANK.length*100)+' %)';
+  scoreBox.textContent='Résultat : '+score+' / '+total+' ('+percentage+' %)';
   result.appendChild(scoreBox);
 
   const p=document.createElement('p');
-  p.textContent='Bonnes réponses : '+score+' · Questions sans réponse : '+unanswered;
+  p.textContent='Élève : '+studentName;
   result.appendChild(p);
 
-  QUESTION_BANK.forEach((q,i)=>{
-    const chosen=document.querySelector('input[name="q'+i+'"]:checked');
-    const val=chosen ? Number(chosen.value) : null;
-    const ok=val!==null && val===Number(q.answer);
-
+  (data.details || []).forEach(d=>{
     const review=document.createElement('div');
     review.className='review';
-
+    const ok=!!d.correct;
     const title=document.createElement('div');
-    title.innerHTML='<strong>Question '+(i+1)+'</strong> — <span class="'+(ok?'correct':'wrong')+'">'+(ok?'✓ Bonne réponse':'✗ Mauvaise réponse')+'</span>';
+    title.innerHTML='<strong>Question '+esc(d.position)+'</strong> — <span class="'+(ok?'correct':'wrong')+'">'+(ok?'✓ Bonne réponse':'✗ Mauvaise réponse')+'</span>';
     review.appendChild(title);
 
     const yours=document.createElement('div');
-    yours.textContent='Votre réponse : '+(val===null?'Aucune réponse':q.options[val]);
+    yours.textContent='Votre réponse : '+(d.selected_text ?? 'Aucune réponse');
     review.appendChild(yours);
 
     const right=document.createElement('div');
-    right.textContent='Bonne réponse : '+q.options[q.answer];
+    right.textContent='Bonne réponse : '+(d.correct_text ?? '—');
     review.appendChild(right);
 
     const sentence=document.createElement('div');
     sentence.className='sentence';
-    sentence.textContent='Phrase correcte : '+q.sentence;
+    sentence.textContent='Phrase correcte : '+(d.correct_sentence ?? '');
     review.appendChild(sentence);
 
     result.appendChild(review);
   });
 
   result.scrollIntoView({behavior:'smooth',block:'start'});
-});
+}
 
-renderQuiz();
+submitBtn.addEventListener('click',submitQuiz);
+
+loadTest().catch(err=>showError('Impossible de charger le test : '+err.message));
 </script>
 </body>
 </html>
