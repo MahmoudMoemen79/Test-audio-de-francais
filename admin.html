@@ -253,7 +253,7 @@ function getAnswerIndex(answers, qid){
 }
 
 async function loadResults(){
-  const btn=$('showResults');
+  const btn=$('showResultsTop');
   btn.disabled=true;
   btn.textContent='Chargement…';
   const [rr, qr] = await Promise.all([
