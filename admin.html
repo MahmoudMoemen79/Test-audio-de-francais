@@ -86,7 +86,8 @@ async function login(){
   await start();
 }
 $('loginBtn').onclick=login;
-$('logout').onclick=async()=>{await sb.auth.signOut();location.reload()};
+// Logout is wired below to the actual top-page button: #logoutTop
+
 
 async function start(){
   let u=await sb.auth.getUser();
