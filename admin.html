@@ -1,25 +1,231 @@
-<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>لوحة تحكم المدرس</title>
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tableau de bord — M. Mahmoud Moemen</title>
 <style>
-body{margin:0;background:#f3f6fa;color:#172033;font-family:Arial,sans-serif}.top{background:linear-gradient(135deg,#071a52,#0055a4 52%,#ef4135);color:#fff;padding:24px;text-align:center}.wrap{max-width:1100px;margin:20px auto;padding:0 14px}.panel,.row{background:#fff;border-radius:15px;padding:16px;margin-bottom:14px;box-shadow:0 5px 18px #0001}input,textarea,select{width:100%;box-sizing:border-box;padding:10px;border:1px solid #ccd3df;border-radius:8px;margin:5px 0 10px;font-size:15px}textarea{min-height:70px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.btn{border:0;border-radius:9px;padding:11px 16px;background:#071a52;color:white;font-weight:700;cursor:pointer;margin:4px}.danger{background:#b42318}.muted{color:#5c6678}@media(max-width:700px){.grid{grid-template-columns:1fr}}table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px solid #ddd;text-align:right}
-</style></head><body><header class="top"><h1>لوحة تحكم M. Mahmoud Moemen</h1><div>إدارة الاختبار والنتائج</div></header><main class="wrap">
-<section id="login" class="panel"><h2>دخول المدرس</h2><input id="email" type="email" placeholder="البريد الإلكتروني"><input id="pass" type="password" placeholder="كلمة المرور"><button class="btn" id="loginBtn">دخول</button><p id="loginMsg" class="muted"></p></section>
+body{margin:0;background:#f3f6fa;color:#172033;font-family:Arial,sans-serif}
+.top{background:linear-gradient(135deg,#071a52,#0055a4 52%,#ef4135);color:#fff;padding:24px;text-align:center}
+.wrap{max-width:1100px;margin:20px auto;padding:0 14px}
+.panel,.row{background:#fff;border-radius:15px;padding:16px;margin-bottom:14px;box-shadow:0 5px 18px #0001}
+input,textarea,select{width:100%;box-sizing:border-box;padding:10px;border:1px solid #ccd3df;border-radius:8px;margin:5px 0 10px;font-size:15px}
+textarea{min-height:70px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.btn{border:0;border-radius:9px;padding:11px 16px;background:#071a52;color:white;font-weight:700;cursor:pointer;margin:4px}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+.upload{background:#0b7a48}
+.danger{background:#b42318}
+.muted{color:#5c6678}
+.uploadLine{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+.audioStatus{min-height:20px;font-size:13px;color:#0b7a48}
+.audioPreview{display:block;width:100%;margin:2px 0 10px}
+@media(max-width:700px){.grid{grid-template-columns:1fr}.uploadLine{grid-template-columns:1fr}}
+table{width:100%;border-collapse:collapse}
+th,td{padding:9px;border-bottom:1px solid #ddd;text-align:right}
+</style>
+</head>
+<body>
+<header class="top"><h1>Tableau de bord</h1><div>Gestion du test et des résultats</div></header>
+<main class="wrap">
+<section id="login" class="panel">
+<h2>Connexion enseignant</h2>
+<input id="email" type="email" placeholder="Adresse e-mail">
+<input id="pass" type="password" placeholder="Mot de passe">
+<button class="btn" id="loginBtn">Se connecter</button>
+<p id="loginMsg" class="muted"></p>
+</section>
+
 <section id="dash" hidden>
-<div class="panel"><button class="btn" id="saveSettings">حفظ إعدادات الاختبار</button><button class="btn" id="logout">خروج</button><label>عنوان الاختبار<input id="title"></label><label>التعليمات<textarea id="instruction"></textarea></label><label>عدد مرات الاستماع<input id="playLimit" type="number" min="0" max="50"></label><label><input id="published" type="checkbox" style="width:auto"> الاختبار منشور للطلاب</label></div>
+<div class="panel">
+<button class="btn" id="saveSettings">Enregistrer les paramètres</button>
+<button class="btn" id="logout">Se déconnecter</button>
+<label>Titre du test<input id="title"></label>
+<label>Consignes<textarea id="instruction"></textarea></label>
+<label>Nombre maximal d’écoutes<input id="playLimit" type="number" min="0" max="50"></label>
+<label><input id="published" type="checkbox" style="width:auto"> Test publié pour les élèves</label>
+<p class="muted">Vous pouvez maintenant envoyer un fichier audio depuis votre ordinateur. Après l’envoi, cliquez sur « Enregistrer toutes les questions ».</p>
+</div>
+
 <div id="questions"></div>
-<div class="panel"><button class="btn" id="addQ">إضافة سؤال</button><button class="btn" id="saveQ">حفظ كل الأسئلة</button></div>
-<div class="panel"><h2>نتائج الطلاب</h2><div id="results">جارٍ التحميل...</div></div>
-</section></main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="config.js"></script><script>
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);let test,qs=[];
+<div class="panel">
+<button class="btn" id="addQ">Ajouter une question</button>
+<button class="btn" id="saveQ">Enregistrer toutes les questions</button>
+</div>
+
+<div class="panel"><h2>Résultats des élèves</h2><div id="results">Chargement…</div></div>
+</section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+let test,qs=[];
 const $=id=>document.getElementById(id);
-async function login(){let r=await sb.auth.signInWithPassword({email:$('email').value,password:$('pass').value});if(r.error){$('loginMsg').textContent=r.error.message;return}await start()}
-$('loginBtn').onclick=login;$('logout').onclick=async()=>{await sb.auth.signOut();location.reload()};
-async function start(){let u=await sb.auth.getUser();if(!u.data.user){return}let p=await sb.from('profiles').select('role').eq('id',u.data.user.id).single();if(p.error||p.data.role!=='teacher'){$('loginMsg').textContent='هذا الحساب ليس حساب مدرس.';await sb.auth.signOut();return}$('login').hidden=true;$('dash').hidden=false;await load()}
-async function load(){let t=await sb.from('tests').select('*').eq('id',TEST_ID).single();if(t.error){alert(t.error.message);return}test=t.data;$('title').value=test.title;$('instruction').value=test.instruction;$('playLimit').value=test.play_limit;$('published').checked=test.published;let r=await sb.from('questions').select('*').eq('test_id',TEST_ID).order('position');if(r.error){alert(r.error.message);return}qs=r.data;draw();loadResults()}
-function draw(){$('questions').innerHTML='';qs.forEach((q,i)=>{let d=document.createElement('div');d.className='row';d.dataset.id=q.id;d.innerHTML='<h3>السؤال '+(i+1)+'</h3><div class="grid"><label>رقم الترتيب<input class="pos" type="number" value="'+q.position+'"></label><label>رابط/اسم الصوت<input class="audio" value="'+q.audio_url+'"></label><label>نص السؤال<input class="qt" dir="ltr" value="'+q.question_text+'"></label><label>الجملة الصحيحة<textarea class="sent" dir="ltr">'+q.correct_sentence+'</textarea></label></div><label>الاختيارات — اكتب اختيارًا في كل خانة</label><div class="grid">'+q.options.map((x,j)=>'<label>اختيار '+(j+1)+'<input class="op" data-j="'+j+'" dir="ltr" value="'+x+'"></label>').join('')+'</div><label>الإجابة الصحيحة<select class="ans">'+q.options.map((x,j)=>'<option value="'+j+'" '+(j===q.correct_index?'selected':'')+'>'+(j+1)+' — '+x+'</option>').join('')+'</select></label><button class="btn danger del">حذف السؤال</button>';d.querySelector('.del').onclick=()=>{qs.splice(i,1);draw()};$('questions').appendChild(d)})}
-$('addQ').onclick=()=>{qs.push({id:null,test_id:TEST_ID,position:qs.length+1,audio_url:'audio_'+(qs.length+1)+'.mp3',question_text:'Question '+(qs.length+1)+' — modifiez ici',options:['Réponse A','Réponse B','Réponse C','Réponse D'],correct_index:0,correct_sentence:'Phrase correcte — modifiez ici',active:true});draw()};
-$('saveSettings').onclick=async()=>{let r=await sb.from('tests').update({title:$('title').value,instruction:$('instruction').value,play_limit:Math.max(0,Math.min(50,Number($('playLimit').value)||0)),published:$('published').checked,updated_at:new Date().toISOString()}).eq('id',TEST_ID);alert(r.error?r.error.message:'تم حفظ إعدادات الاختبار.')};
-$('saveQ').onclick=async()=>{let rows=[...document.querySelectorAll('.row')];for(let i=0;i<rows.length;i++){let d=rows[i], opts=[...d.querySelectorAll('.op')].map(x=>x.value.trim());let obj={test_id:TEST_ID,position:Number(d.querySelector('.pos').value)||i+1,audio_url:d.querySelector('.audio').value.trim(),question_text:d.querySelector('.qt').value.trim(),options:opts,correct_index:Number(d.querySelector('.ans').value),correct_sentence:d.querySelector('.sent').value.trim(),active:true};let id=d.dataset.id;if(id) await sb.from('questions').update(obj).eq('id',id);else await sb.from('questions').insert(obj)}alert('تم حفظ الأسئلة.');await load()};
-async function loadResults(){let r=await sb.from('results').select('student_name,score,total,percentage,created_at').eq('test_id',TEST_ID).order('created_at',{ascending:false});if(r.error){$('results').textContent=r.error.message;return}if(!r.data.length){$('results').textContent='لا توجد نتائج حتى الآن.';return}$('results').innerHTML='<table><tr><th>الطالب</th><th>الدرجة</th><th>النسبة</th><th>التاريخ</th></tr>'+r.data.map(x=>'<tr><td>'+x.student_name+'</td><td>'+x.score+'/'+x.total+'</td><td>'+x.percentage+'%</td><td>'+new Date(x.created_at).toLocaleString('ar-EG')+'</td></tr>').join('')+'</table>'}
+
+async function login(){
+  let r=await sb.auth.signInWithPassword({email:$('email').value,password:$('pass').value});
+  if(r.error){$('loginMsg').textContent=r.error.message;return}
+  await start();
+}
+$('loginBtn').onclick=login;
+$('logout').onclick=async()=>{await sb.auth.signOut();location.reload()};
+
+async function start(){
+  let u=await sb.auth.getUser();
+  if(!u.data.user){return}
+  let p=await sb.from('profiles').select('role').eq('id',u.data.user.id).single();
+  if(p.error||p.data.role!=='teacher'){
+    $('loginMsg').textContent='Ce compte n’est pas un compte enseignant.';
+    await sb.auth.signOut();
+    return
+  }
+  $('login').hidden=true;
+  $('dash').hidden=false;
+  await load();
+}
+
+async function load(){
+  let t=await sb.from('tests').select('*').eq('id',TEST_ID).single();
+  if(t.error){alert(t.error.message);return}
+  test=t.data;
+  $('title').value=test.title;
+  $('instruction').value=test.instruction;
+  $('playLimit').value=test.play_limit;
+  $('published').checked=test.published;
+
+  let r=await sb.from('questions').select('*').eq('test_id',TEST_ID).order('position');
+  if(r.error){alert(r.error.message);return}
+  qs=r.data;
+  draw();
+  loadResults();
+}
+
+function draw(){
+  $('questions').innerHTML='';
+  qs.forEach((q,i)=>{
+    let d=document.createElement('div');
+    d.className='row';
+    d.dataset.id=q.id||'';
+    d.innerHTML=''
+       +'<h3>Question '+(i+1)+'</h3>'
+      +'<div class="grid">'
+      +'<label>Position<input class="pos" type="number" value="'+q.position+'"></label>'
+      +'<div><label>Fichier audio (MP3)</label>'
+      +'<div class="uploadLine"><input class="audioFile" type="file" accept="audio/mpeg,audio/mp3,.mp3,.wav,.m4a"><button class="btn upload" type="button">Envoyer le fichier</button></div>'
+      +'<input class="audio" value="'+(q.audio_url||'')+'" placeholder="Lien du fichier après l’envoi">'
+      +'<div class="audioStatus"></div></div>'
+      +'<label>Texte de la question<input class="qt" dir="ltr" value="'+(q.question_text||'')+'"></label>'
+      +'<label>Phrase correcte<textarea class="sent" dir="ltr">'+(q.correct_sentence||'')+'</textarea></label>'
+      +'</div>'
+      +'<label>Choix — écrivez une réponse dans chaque case</label>'
+      +'<div class="grid">'+q.options.map((x,j)=>'<label>Choix '+(j+1)+'<input class="op" data-j="'+j+'" dir="ltr" value="'+(x||'')+'"></label>').join('')+'</div>'
+      +'<label>Bonne réponse<select class="ans">'+q.options.map((x,j)=>'<option value="'+j+'" '+(j===q.correct_index?'selected':'')+'>'+(j+1)+' — '+x+'</option>').join('')+'</select></label>'
+      +'<button class="btn danger del" type="button">Supprimer la question</button>';
+
+    d.querySelector('.del').onclick=()=>{qs.splice(i,1);qs.forEach((item,idx)=>item.position=idx+1);draw()};
+    d.querySelector('.upload').onclick=()=>uploadAudio(d);
+    if(q.audio_url && /^https?:\/\//i.test(q.audio_url)){
+      d.querySelector('.audioStatus').textContent='Fichier audio déjà enregistré.';
+    }
+    $('questions').appendChild(d);
+  });
+}
+
+async function uploadAudio(row){
+  const fileInput=row.querySelector('.audioFile');
+  const file=fileInput.files && fileInput.files[0];
+  const status=row.querySelector('.audioStatus');
+  const btn=row.querySelector('.upload');
+  if(!file){status.textContent='Choisissez d’abord un fichier audio.';return}
+  const allowed=['audio/mpeg','audio/mp3','audio/wav','audio/x-wav','audio/mp4'];
+  const ext=(file.name.split('.').pop()||'mp3').toLowerCase();
+  if(!allowed.includes(file.type) && !['mp3','wav','m4a'].includes(ext)){
+    status.textContent='Le fichier doit être audio (MP3, WAV ou M4A).';
+    return;
+  }
+
+  btn.disabled=true;
+  status.textContent='Envoi du fichier en cours…';
+  const safeName=file.name.replace(/[^a-zA-Z0-9._-]+/g,'_');
+  const id=(crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2)));
+  const path=TEST_ID+'/'+id+'-'+safeName;
+  const {error}=await sb.storage.from('test-audio').upload(path,file,{contentType:file.type||'audio/mpeg',upsert:false});
+  if(error){
+    status.textContent='Échec de l’envoi : '+error.message;
+    btn.disabled=false;
+    return;
+  }
+  const publicUrl=sb.storage.from('test-audio').getPublicUrl(path).data.publicUrl;
+  row.querySelector('.audio').value=publicUrl;
+  status.textContent='Fichier envoyé. Cliquez sur « Enregistrer toutes les questions » pour l’enregistrer dans cette question.';
+  btn.disabled=false;
+}
+
+$('addQ').onclick=()=>{
+  qs.push({
+    id:null,
+    test_id:TEST_ID,
+    position:qs.length+1,
+    audio_url:'',
+    question_text:'Question '+(qs.length+1)+' — modifiez ici',
+    options:['Réponse A','Réponse B','Réponse C','Réponse D'],
+    correct_index:0,
+    correct_sentence:'Phrase correcte — modifiez ici',
+    active:true
+  });
+  draw();
+};
+
+$('saveSettings').onclick=async()=>{
+  let r=await sb.from('tests').update({
+    title:$('title').value,
+    instruction:$('instruction').value,
+    play_limit:Math.max(0,Math.min(50,Number($('playLimit').value)||0)),
+    published:$('published').checked,
+    updated_at:new Date().toISOString()
+  }).eq('id',TEST_ID);
+  alert(r.error?r.error.message:'Paramètres du test enregistrés.');
+};
+
+$('saveQ').onclick=saveQuestions;
+
+async function saveQuestions(){
+  const rows=[...document.querySelectorAll('.row')];
+  for(let i=0;i<rows.length;i++){
+    let d=rows[i];
+    let opts=[...d.querySelectorAll('.op')].map(x=>x.value.trim());
+    let obj={
+      test_id:TEST_ID,
+      position:Number(d.querySelector('.pos').value)||i+1,
+      audio_url:d.querySelector('.audio').value.trim(),
+      question_text:d.querySelector('.qt').value.trim(),
+      options:opts,
+      correct_index:Number(d.querySelector('.ans').value),
+      correct_sentence:d.querySelector('.sent').value.trim(),
+      active:true
+    };
+    let id=d.dataset.id;
+    let r=id
+      ? await sb.from('questions').update(obj).eq('id',id)
+      : await sb.from('questions').insert(obj);
+    if(r.error){alert(r.error.message);return}
+  }
+  alert('Questions enregistrées.');
+  await load();
+}
+
+async function loadResults(){
+  let r=await sb.from('results').select('student_name,score,total,percentage,created_at').eq('test_id',TEST_ID).order('created_at',{ascending:false});
+  if(r.error){$('results').textContent=r.error.message;return}
+  if(!r.data.length){$('results').textContent='Aucun résultat pour le moment.';return}
+  $('results').innerHTML='<table><tr><th>Élève</th><th>Score</th><th>Pourcentage</th><th>Date</th></tr>'
+    +r.data.map(x=>'<tr><td>'+x.student_name+'</td><td>'+x.score+'/'+x.total+'</td><td>'+x.percentage+'%</td><td>'+new Date(x.created_at).toLocaleString('ar-EG')+'</td></tr>').join('')
+    +'</table>';
+}
+
 sb.auth.getSession().then(()=>start());
-</script></body></html>
+</script>
+</body>
+</html>
