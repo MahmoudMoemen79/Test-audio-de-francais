@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Résultats des élèves — M. Mahmoud Moemen</title>
+<style>
+body{margin:0;background:#f3f6fa;color:#172033;font-family:Arial,sans-serif}
+.top{background:linear-gradient(135deg,#071a52,#0055a4 52%,#ef4135);color:#fff;padding:24px;text-align:center}
+.wrap{max-width:1100px;margin:20px auto;padding:0 14px}
+.panel,.row{background:#fff;border-radius:15px;padding:16px;margin-bottom:14px;box-shadow:0 5px 18px #0001}
+.btn{border:0;border-radius:9px;padding:11px 16px;background:#071a52;color:white;font-weight:700;cursor:pointer;margin:4px}
+.btn:disabled{opacity:.6;cursor:not-allowed}.danger{background:#b42318}.muted{color:#5c6678}
+.actions{position:sticky;top:0;z-index:20;background:#f3f6fa;padding:10px 0;margin-bottom:10px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px solid #ddd;text-align:right;vertical-align:top}
+.nameBtn{background:none;border:0;padding:0;font:inherit;font-weight:700;text-decoration:underline;cursor:pointer;color:#071a52}
+.detailBox{background:#f8fafc;border:1px solid #dfe5ee;border-radius:10px;padding:12px;margin-top:8px}
+.answerTable{width:100%;border-collapse:collapse}.answerTable th,.answerTable td{padding:7px;border-bottom:1px solid #e5e7eb;text-align:right}
+.ok{font-weight:700;color:#0b7a48}.bad{font-weight:700;color:#b42318}.status{margin:8px 0}.smallDanger{white-space:nowrap;font-size:12px;padding:8px 10px;margin:0}
+@media(max-width:700px){table{font-size:13px}.actions{flex-direction:column}.actions .btn{width:100%;margin:0}}
+</style>
+</head>
+<body>
+<header class="top"><h1>Résultats des élèves</h1><div>Consultation des participations et des réponses</div></header>
+<main class="wrap">
+<section id="login" class="panel">
+<h2>Connexion enseignant</h2>
+<input id="email" type="email" placeholder="Adresse e-mail">
+<input id="pass" type="password" placeholder="Mot de passe">
+<button class="btn" id="loginBtn" type="button">Se connecter</button>
+<p id="loginMsg" class="muted"></p>
+</section>
+
+<section id="dash" hidden>
+<div class="actions">
+  <a class="btn" href="admin.html" style="text-decoration:none;display:inline-block">← Retour aux réglages du test</a>
+  <button class="btn" id="refreshBtn" type="button">Actualiser les résultats</button>
+  <button class="btn" id="logoutTop" type="button">Se déconnecter</button>
+</div>
+<div class="panel">
+  <h2>Participants</h2>
+  <p class="muted">Cliquez sur le nom d’un élève pour voir toutes ses réponses. Le bouton « Supprimer » efface définitivement sa participation.</p>
+  <div id="status" class="status muted"></div>
+  <div id="results">Chargement…</div>
+</div>
+</section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+const $=id=>document.getElementById(id);
+
+async function login(){
+  const r=await sb.auth.signInWithPassword({email:$('email').value,password:$('pass').value});
+  if(r.error){$('loginMsg').textContent=r.error.message;return}
+  await start();
+}
+$('loginBtn').onclick=login;
+
+async function start(){
+  const u=await sb.auth.getUser();
+  if(!u.data.user)return;
+  const p=await sb.from('profiles').select('role').eq('id',u.data.user.id).single();
+  if(p.error||p.data.role!=='teacher'){
+    $('loginMsg').textContent='Ce compte n’est pas un compte enseignant.';
+    await sb.auth.signOut();
+    return;
+  }
+  $('login').hidden=true;
+  $('dash').hidden=false;
+  await loadResults();
+}
+
+function esc(v){
+  return String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function getAnswerIndex(answers,qid){
+  if(!answers || typeof answers!=='object') return null;
+  const raw=answers[qid];
+  if(raw===null||raw===undefined||raw==='') return null;
+  if(typeof raw==='number') return Number.isFinite(raw)?raw:null;
+  if(typeof raw==='string'&&raw.trim()!==''){const n=Number(raw);return Number.isFinite(n)?n:null}
+  if(typeof raw==='object'){
+    const candidate=raw.selected_index??raw.answer??raw.index;
+    const n=Number(candidate); return Number.isFinite(n)?n:null;
+  }
+  return null;
+}
+function buildDetails(result,questions){
+  const answers=result.answers||{};
+  let h='<div><strong>'+esc(result.student_name)+'</strong> — '+esc(result.score)+'/'+esc(result.total)+' ('+esc(result.percentage)+'%)</div>';
+  h+='<table class="answerTable"><thead><tr><th>Question</th><th>Votre réponse</th><th>Bonne réponse</th><th>Phrase correcte</th><th>Résultat</th></tr></thead><tbody>';
+  questions.forEach((q,idx)=>{
+    const chosen=getAnswerIndex(answers,q.id);
+    const opts=Array.isArray(q.options)?q.options:[];
+    const studentText=(chosen!==null&&chosen>=0&&chosen<opts.length)?opts[chosen]:'Aucune réponse';
+    const correctText=(q.correct_index>=0&&q.correct_index<opts.length)?opts[q.correct_index]:'—';
+    const ok=chosen!==null&&chosen===q.correct_index;
+    h+='<tr><td>Question '+esc(idx+1)+'</td><td>'+esc(studentText)+'</td><td>'+esc(correctText)+'</td><td>'+esc(q.correct_sentence||'—')+'</td><td class="'+(ok?'ok':'bad')+'">'+(ok?'✓ Bonne réponse':'✗ Mauvaise réponse')+'</td></tr>';
+  });
+  return h+'</tbody></table>';
+}
+
+async function loadResults(){
+  $('status').textContent='Chargement…';
+  const [rr,qr]=await Promise.all([
+    sb.from('results').select('*').eq('test_id',TEST_ID).order('created_at',{ascending:false}),
+    sb.from('questions').select('id,position,question_text,options,correct_index,correct_sentence').eq('test_id',TEST_ID).order('position')
+  ]);
+  if(rr.error){$('status').textContent='Erreur : '+rr.error.message;$('results').textContent='';return}
+  if(qr.error){$('status').textContent='Erreur : '+qr.error.message;$('results').textContent='';return}
+  const results=rr.data||[], questions=qr.data||[];
+  if(!results.length){$('status').textContent='';$('results').innerHTML='<p class="muted">Aucun résultat pour le moment.</p>';return}
+  $('status').textContent=results.length+' participation(s)';
+  $('results').innerHTML='<table><thead><tr><th>Élève</th><th>Score</th><th>Pourcentage</th><th>Date</th><th>Action</th></tr></thead><tbody>'+
+    results.map((x,i)=>{
+      const rid=String(x.id||('r'+i));
+      return '<tr><td><button class="nameBtn" type="button" data-result="'+esc(rid)+'">'+esc(x.student_name||'Sans nom')+'</button><div class="detailBox" id="detail-'+esc(rid)+'" hidden></div></td>'+
+      '<td>'+esc(x.score)+'/'+esc(x.total)+'</td><td>'+esc(x.percentage)+'%</td><td>'+esc(new Date(x.created_at).toLocaleString('fr-FR'))+'</td>'+
+      '<td><button class="btn danger smallDanger" type="button" data-delete-result="'+esc(rid)+'">Supprimer</button></td></tr>';
+    }).join('')+'</tbody></table>';
+
+  document.querySelectorAll('.nameBtn').forEach(btn=>btn.onclick=()=>{
+    const x=results.find(r=>String(r.id)===String(btn.dataset.result));
+    const box=document.getElementById('detail-'+btn.dataset.result);
+    if(!x||!box)return;
+    if(!box.hidden){box.hidden=true;return}
+    box.innerHTML=buildDetails(x,questions); box.hidden=false;
+  });
+
+  document.querySelectorAll('.smallDanger').forEach(btn=>btn.onclick=async()=>{
+    const rid=btn.dataset.deleteResult;
+    const x=results.find(r=>String(r.id)===String(rid));
+    if(!x)return;
+    if(!confirm('Supprimer définitivement la participation de « '+(x.student_name||'cet élève')+' » ?\n\nCette action est irréversible.'))return;
+    btn.disabled=true;btn.textContent='Suppression…';
+    const r=await sb.from('results').delete().eq('id',rid).eq('test_id',TEST_ID).select('id');
+    if(r.error){alert('La suppression a échoué : '+r.error.message);btn.disabled=false;btn.textContent='Supprimer';return}
+    if(!r.data || r.data.length===0){alert('Aucune ligne n’a été supprimée. Il faut autoriser la suppression des résultats pour le rôle enseignant dans Supabase.');btn.disabled=false;btn.textContent='Supprimer';return}
+    await loadResults();
+  });
+}
+
+$('refreshBtn').onclick=loadResults;
+$('logoutTop').onclick=async()=>{await sb.auth.signOut();location.reload()};
+sb.auth.getSession().then(()=>start());
+</script>
+</body>
+</html>
