@@ -13,9 +13,8 @@ create table if not exists public.profiles (
 
 create table if not exists public.tests (
   id uuid primary key default gen_random_uuid(),
-  title text not null default 'Hörverstehen',
-  instruction text not null default 'Hören Sie zuerst den folgenden Satz und wählen Sie dann die richtige Antwort aus.',
-  play_limit integer not null default 1 check (play_limit >= 0 and play_limit <= 50),
+title text not null default 'Compréhension orale',
+instruction text not null default 'Écoutez d''abord le fichier audio, puis choisissez la bonne réponse.',  play_limit integer not null default 1 check (play_limit >= 0 and play_limit <= 50),
   published boolean not null default true,
   updated_at timestamptz not null default now()
 );
