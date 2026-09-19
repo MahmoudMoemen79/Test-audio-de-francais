@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Compréhension orale — M. Mahmoud Moemen</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f4f7fb;color:#172033}
+.hero{padding:30px 20px;color:#fff;text-align:center;background:linear-gradient(135deg,#071a52,#0055a4 50%,#ef4135);border-bottom:6px solid #fff}
+.hero h1{margin:0;font-size:34px}.hero p{margin:8px 0}.name{font-size:20px;font-weight:700}
+.wrap{max-width:900px;margin:24px auto;padding:0 16px}
+.panel,.card{background:#fff;border-radius:18px;padding:20px;margin-bottom:18px;box-shadow:0 8px 25px #00000012}
+.instruction{font-size:18px;font-weight:700;line-height:1.5}
+.card h2{margin:0 0 14px;direction:ltr;text-align:left;font-size:22px}
+.audio-row{margin:0 0 18px;padding:0 0 16px;border-bottom:1px solid #e3e8ef}
+audio{display:block;width:100%;max-width:100%}
+.plays{display:block;margin-top:8px;color:#566;font-size:14px}
+.options{direction:ltr;text-align:left}
+.option{display:block;padding:12px;margin:8px 0;border:1px solid #dde3ec;border-radius:10px;cursor:pointer;line-height:1.4}
+.option:hover{background:#f5f8fc}
+.submit{width:100%;border:0;border-radius:12px;background:#071a52;color:#fff;font-weight:700;font-size:19px;padding:15px;cursor:pointer}
+.result{display:none}.score{font-size:26px;font-weight:800}
+.review{border-top:1px solid #ddd;margin-top:16px;padding-top:14px;line-height:1.6}
+.correct{color:#16823b}.wrong{color:#c62828}
+.sentence{margin-top:8px;padding:10px;border-radius:10px;background:#f0f4f8;direction:ltr;text-align:left}
+.notice{color:#8a5a00;background:#fff7e6;padding:10px;border-radius:10px;margin-top:10px}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div style="font-size:28px">🇫🇷 🗼 🇫🇷</div>
+  <h1>Compréhension orale</h1>
+  <p>Écoutez et choisissez la bonne réponse.</p>
+  <div class="name">M. Mahmoud Moemen</div>
+</header>
+
+<main class="wrap">
+<section class="panel">
+  <p class="instruction">Écoutez d'abord le fichier audio, puis choisissez la bonne réponse.</p>
+</section>
+
+<div id="quiz"></div>
+<button class="submit" id="submit" type="button">Voir le résultat</button>
+<section class="panel result" id="result" aria-live="polite"></section>
+</main>
+
+<script>
+const QUESTION_BANK = [{"audio": "audio_1.mp3", "question": "Question 1 — modifiez ici", "options": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], "answer": 0, "sentence": "Phrase 1 — modifiez ici"}, {"audio": "audio_2.mp3", "question": "Question 2 — modifiez ici", "options": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], "answer": 0, "sentence": "Phrase 2 — modifiez ici"}, {"audio": "audio_3.mp3", "question": "Question 3 — modifiez ici", "options": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], "answer": 0, "sentence": "Phrase 3 — modifiez ici"}, {"audio": "audio_4.mp3", "question": "Question 4 — modifiez ici", "options": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], "answer": 0, "sentence": "Phrase 4 — modifiez ici"}, {"audio": "audio_5.mp3", "question": "Question 5 — modifiez ici", "options": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], "answer": 0, "sentence": "Phrase 5 — modifiez ici"}, {"audio": "audio_6.mp3", "question": "Question 6 — modifiez ici", "options": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], "answer": 0, "sentence": "Phrase 6 — modifiez ici"}, {"audio": "audio_7.mp3", "question": "Question 7 — modifiez ici", "options": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], "answer": 0, "sentence": "Phrase 7 — modifiez ici"}, {"audio": "audio_8.mp3", "question": "Question 8 — modifiez ici", "options": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], "answer": 0, "sentence": "Phrase 8 — modifiez ici"}, {"audio": "audio_9.mp3", "question": "Question 9 — modifiez ici", "options": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], "answer": 0, "sentence": "Phrase 9 — modifiez ici"}, {"audio": "audio_10.mp3", "question": "Question 10 — modifiez ici", "options": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], "answer": 0, "sentence": "Phrase 10 — modifiez ici"}];
+const PLAY_LIMIT = 3; // À modifier plus tard dans le tableau de bord.
+const quiz = document.getElementById('quiz');
+const result = document.getElementById('result');
+const playCounts = Array(QUESTION_BANK.length).fill(0);
+
+function renderQuiz(){
+  QUESTION_BANK.forEach((q,i)=>{
+    const card=document.createElement('section');
+    card.className='card';
+
+    const audioRow=document.createElement('div');
+    audioRow.className='audio-row';
+
+    const audio=document.createElement('audio');
+    audio.controls=true;
+    audio.preload='none';
+    audio.src=q.audio;
+    audio.setAttribute('aria-label','Audio de la question '+(i+1));
+
+    const plays=document.createElement('span');
+    plays.className='plays';
+    plays.textContent='Écoutes : 0 / '+PLAY_LIMIT;
+
+    audioRow.appendChild(audio);
+    audioRow.appendChild(plays);
+
+    const h2=document.createElement('h2');
+    h2.textContent='Question '+(i+1)+' : '+q.question;
+
+    const opts=document.createElement('div');
+    opts.className='options';
+
+    q.options.forEach((o,j)=>{
+      const label=document.createElement('label');
+      label.className='option';
+      const input=document.createElement('input');
+      input.type='radio';
+      input.name='q'+i;
+      input.value=j;
+      label.appendChild(input);
+      label.appendChild(document.createTextNode(' '+o));
+      opts.appendChild(label);
+    });
+
+    card.appendChild(audioRow);
+    card.appendChild(h2);
+    card.appendChild(opts);
+    quiz.appendChild(card);
+
+    audio.addEventListener('play',()=>{
+      if(playCounts[i]>=PLAY_LIMIT){
+        audio.pause();
+        audio.currentTime=0;
+      }
+    });
+    audio.addEventListener('ended',()=>{
+      playCounts[i]++;
+      plays.textContent='Écoutes : '+playCounts[i]+' / '+PLAY_LIMIT;
+      if(playCounts[i]>=PLAY_LIMIT){
+        audio.controls=false;
+      }
+    });
+  });
+}
+
+document.getElementById('submit').addEventListener('click',()=>{
+  let score=0, unanswered=0;
+  QUESTION_BANK.forEach((q,i)=>{
+    const chosen=document.querySelector('input[name="q'+i+'"]:checked');
+    if(!chosen) unanswered++;
+    else if(Number(chosen.value)===Number(q.answer)) score++;
+  });
+
+  result.style.display='block';
+  result.innerHTML='';
+  const scoreBox=document.createElement('div');
+  scoreBox.className='score';
+  scoreBox.textContent='Résultat : '+score+' / '+QUESTION_BANK.length+' ('+Math.round(score/QUESTION_BANK.length*100)+' %)';
+  result.appendChild(scoreBox);
+
+  const p=document.createElement('p');
+  p.textContent='Bonnes réponses : '+score+' · Questions sans réponse : '+unanswered;
+  result.appendChild(p);
+
+  QUESTION_BANK.forEach((q,i)=>{
+    const chosen=document.querySelector('input[name="q'+i+'"]:checked');
+    const val=chosen ? Number(chosen.value) : null;
+    const ok=val!==null && val===Number(q.answer);
+
+    const review=document.createElement('div');
+    review.className='review';
+
+    const title=document.createElement('div');
+    title.innerHTML='<strong>Question '+(i+1)+'</strong> — <span class="'+(ok?'correct':'wrong')+'">'+(ok?'✓ Bonne réponse':'✗ Mauvaise réponse')+'</span>';
+    review.appendChild(title);
+
+    const yours=document.createElement('div');
+    yours.textContent='Votre réponse : '+(val===null?'Aucune réponse':q.options[val]);
+    review.appendChild(yours);
+
+    const right=document.createElement('div');
+    right.textContent='Bonne réponse : '+q.options[q.answer];
+    review.appendChild(right);
+
+    const sentence=document.createElement('div');
+    sentence.className='sentence';
+    sentence.textContent='Phrase correcte : '+q.sentence;
+    review.appendChild(sentence);
+
+    result.appendChild(review);
+  });
+
+  result.scrollIntoView({behavior:'smooth',block:'start'});
+});
+
+renderQuiz();
+</script>
+</body>
+</html>
