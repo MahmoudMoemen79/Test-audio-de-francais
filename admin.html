@@ -14,6 +14,10 @@ textarea{min-height:70px}
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .btn{border:0;border-radius:9px;padding:11px 16px;background:#071a52;color:white;font-weight:700;cursor:pointer;margin:4px}
 .btn:disabled{opacity:.6;cursor:not-allowed}
+.topActions{position:sticky;top:0;z-index:20;background:#f3f6fa;padding:10px 0;margin-bottom:10px;display:flex;justify-content:space-between;gap:10px}
+.resultsTop{font-size:16px;padding:13px 20px}
+.resultDelete{white-space:nowrap;font-size:12px;padding:8px 10px;margin:0 0 0 6px}
+@media(max-width:700px){.topActions{flex-direction:column}.topActions .btn{width:100%;margin:0}}
 .upload{background:#0b7a48}
 .danger{background:#b42318}
 .muted{color:#5c6678}
@@ -42,9 +46,12 @@ th,td{padding:9px;border-bottom:1px solid #ddd;text-align:right;vertical-align:t
 </section>
 
 <section id="dash" hidden>
+<div class="topActions">
+  <button class="btn resultsTop" id="showResultsTop" type="button">Afficher les résultats des élèves</button>
+  <button class="btn" id="logoutTop" type="button">Se déconnecter</button>
+</div>
 <div class="panel">
 <button class="btn" id="saveSettings">Enregistrer les paramètres</button>
-<button class="btn" id="logout">Se déconnecter</button>
 <label>Titre du test<input id="title"></label>
 <label>Consignes<textarea id="instruction"></textarea></label>
 <label>Nombre maximal d’écoutes<input id="playLimit" type="number" min="0" max="50"></label>
@@ -58,10 +65,9 @@ th,td{padding:9px;border-bottom:1px solid #ddd;text-align:right;vertical-align:t
 <button class="btn" id="saveQ">Enregistrer toutes les questions</button>
 </div>
 
-<div class="panel">
+<div class="panel" id="resultsPanel">
 <h2>Résultats des élèves</h2>
-<p class="muted">Les résultats restent masqués jusqu’à ce que vous cliquiez sur le bouton.</p>
-<button class="btn" id="showResults" type="button">Afficher les résultats des élèves</button>
+<p class="muted">Cliquez sur le bouton en haut pour afficher ou masquer les résultats. Cliquez sur le nom d’un élève pour voir toutes ses réponses.</p>
 <div id="results" hidden>Aucun résultat chargé.</div>
 </div>
 </section>
@@ -263,22 +269,43 @@ async function loadResults(){
   const questions=qr.data||[];
   if(!results.length){$('results').textContent='Aucun résultat pour le moment.';return}
 
-  $('results').innerHTML='<table><thead><tr><th>Élève</th><th>Score</th><th>Pourcentage</th><th>Date</th></tr></thead><tbody>'
+  $('results').innerHTML='<table><thead><tr><th>Élève</th><th>Score</th><th>Pourcentage</th><th>Date</th><th>Action</th></tr></thead><tbody>'
     + results.map((x,i)=>{
       const resultId=x.id||('r'+i);
       return '<tr><td><button class="nameBtn" type="button" data-result="'+esc(resultId)+'">'+esc(x.student_name)+'</button><div class="detailBox" id="detail-'+esc(resultId)+'" hidden></div></td>'
-        +'<td>'+esc(x.score)+'/'+esc(x.total)+'</td><td>'+esc(x.percentage)+'%</td><td>'+esc(new Date(x.created_at).toLocaleString('fr-FR'))+'</td></tr>';
+        +'<td>'+esc(x.score)+'/'+esc(x.total)+'</td><td>'+esc(x.percentage)+'%</td><td>'+esc(new Date(x.created_at).toLocaleString('fr-FR'))+'</td>'
+        +'<td><button class="btn danger resultDelete" type="button" data-delete-result="'+esc(resultId)+'">Supprimer</button></td></tr>';
     }).join('')
     +'</tbody></table>';
 
-  [...$('results').querySelectorAll('.nameBtn')].forEach((nameBtn,i)=>{
+  [...$('results').querySelectorAll('.nameBtn')].forEach((nameBtn)=>{
     nameBtn.onclick=()=>{
-      const x=results[i];
-      const box=$('detail-'+(x.id||('r'+i)));
-      if(!box) return;
+      const x=results.find(r=>String(r.id)===String(nameBtn.dataset.result));
+      const box=$('detail-'+nameBtn.dataset.result);
+      if(!x||!box) return;
       if(!box.hidden){box.hidden=true;return}
       box.innerHTML=buildResultDetails(x,questions);
       box.hidden=false;
+    };
+  });
+
+  [...$('results').querySelectorAll('.resultDelete')].forEach((deleteBtn)=>{
+    deleteBtn.onclick=async()=>{
+      const resultId=deleteBtn.dataset.deleteResult;
+      const x=results.find(r=>String(r.id)===String(resultId));
+      if(!x) return;
+      const ok=confirm('Supprimer définitivement la participation de « '+(x.student_name||'cet élève')+' » ?\n\nToutes ses réponses et son résultat seront supprimés.');
+      if(!ok) return;
+      deleteBtn.disabled=true;
+      deleteBtn.textContent='Suppression…';
+      const r=await sb.from('results').delete().eq('id',resultId);
+      if(r.error){
+        alert('Impossible de supprimer ce résultat : '+r.error.message);
+        deleteBtn.disabled=false;
+        deleteBtn.textContent='Supprimer';
+        return;
+      }
+      await loadResults();
     };
   });
 }
@@ -299,10 +326,20 @@ function buildResultDetails(result,questions){
   return html;
 }
 
-$('showResults').onclick=async()=>{
-  if(!$('results').hidden){$('results').hidden=true;$('showResults').textContent='Afficher les résultats des élèves';return}
+async function toggleResults(){
+  if(!$('results').hidden){
+    $('results').hidden=true;
+    $('showResultsTop').textContent='Afficher les résultats des élèves';
+    $('resultsPanel').scrollIntoView({behavior:'smooth',block:'start'});
+    return;
+  }
   await loadResults();
-};
+  $('showResultsTop').textContent='Masquer les résultats';
+  $('resultsPanel').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+$('showResultsTop').onclick=toggleResults;
+$('logoutTop').onclick=async()=>{await sb.auth.signOut();location.reload()};
 
 sb.auth.getSession().then(()=>start());
 </script>
